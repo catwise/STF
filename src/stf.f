@@ -6,6 +6,8 @@ c   vsn 1.4:  added -D # to pass only each #th line
 c   vsn 1.5:  lengthened FilNam to 1000 characters
 c   vsn 1.51: added "-r", "-d", "-D" to tutorial; expanded to 5000
 c             fields, 500 command-line arguments
+c   vsn 1.52: B70830 changes error-exit stop statements to call exit(64)
+c   vsn 1.6:  B90127 added "-h" option
 c
                             Integer MaxFld, MaxArg
                        Parameter (MaxFld = 5000, MaxArg = 500)
@@ -16,7 +18,7 @@ c
       Character*25   NumStr
       Character*10   Fmt
       Logical        Keep(MaxFld),List,GotPipe,DoHed1,DoHed2,DoHed3,
-     +               Used(MaxArg), Del1N, Kep1N, PassRand
+     +               Used(MaxArg), Del1N, Kep1N, PassRand, HdrOnly
       Real*4         RandPass
       Integer*4      Col1(MaxFld),IArgC,NArgs,Access,I,J,J1,J2,K,N,
      +               NFlds,LNBlnk,N2, Nout, Nread, N1Del, N1Keep
@@ -24,7 +26,7 @@ c
       Data Keep/MaxFld*.False./, List/.False./, GotPipe/.False./,
      +     DoHed1/.True./, DoHed2/.True./, DoHed3/.True./, N2/0/,
      +     Used/MaxArg*.False./, NFlds/0/, PassRand,Del1N/2*.false./,
-     +     Nout/0/, Nread/0/, Kep1N/.false./
+     +     Nout/0/, Nread/0/, Kep1N/.false./, HdrOnly/.false./
 c
 c-----------------------------------------------------------------------
 c
@@ -43,7 +45,7 @@ c
       Call GetArg(1, FilNam)
       If (Access(FilNam,' ') .ne. 0) Then
         Write (0,7001) FilNam
-        Stop
+        call exit(64)
       End If
 c
       I = 0
@@ -53,6 +55,9 @@ c
         If ((ArgNam(I) .eq. '-l') .or. (ArgNam(I) .eq. '-L')) Then
           List = .True.
           Used(I) = .True.
+        Else If ((ArgNam(I) .eq. '-h') .or. (ArgNam(I) .eq. '-H')) Then
+          Used(I) = .True.
+          HdrOnly = .true.
         Else If ((ArgNam(I) .eq. '-s1') .or. (ArgNam(I) .eq. '-S1'))
      +  Then
           DoHed1 = .False.
@@ -130,9 +135,9 @@ c
         If (Keep(I)) N = N + 1
 30    Continue
 c
-      If ((N .eq. 0) .and. (N2 .eq. 0) .and. (.not.List)) Then
+      If ((N.eq.0) .and. (N2.eq.0) .and. (.not.(List.or.HdrOnly))) Then
         Write (0, 7002)
-        Stop
+        call exit(64)
       End If
 c
       Do 40 I = 1, NArgs
@@ -142,6 +147,7 @@ c
       Open (60, File = FilNam)
       Read (60, 6060, End = 1000) Line
       If (Line(1:1) .eq. '|') GotPipe = .True.
+      if (GotPipe .and. HdrOnly) stop
       If ((.not.GotPipe) .and. (DoHed1)) Then
         Call MakeFmt(Fmt,LNBlnk(Line))
         Write (6, Fmt) Line
@@ -189,7 +195,7 @@ c
 92      Continue
 94    Continue
 c
-      If ((N .eq. 0) .and. (.not.List)) Then
+      If ((N .eq. 0) .and. (.not.(List.or.HdrOnly))) Then
         Write (0, 7002)
         Go to 1000
       End If
@@ -220,6 +226,7 @@ c
 c
 100   Read (60, 6060, End = 1000) Line
       If (Line(1:1) .eq. '|') GotPipe = .True.
+      if (GotPipe .and. HdrOnly) stop
       If ((.not.GotPipe) .and. (DoHed1)) Then
         Call MakeFmt(Fmt,LNBlnk(Line))
         Write (6, Fmt) Line
@@ -294,23 +301,24 @@ c
       Stop
 c
 3000  print *,'Bad value for "-d":',NumStr
-      stop
+      call exit(64)
 c
 3001  print *,'Bad value for "-r":',NumStr
-      stop
+      call exit(64)
 c
 3002  print *,'Bad value for "-D":',NumStr
-      stop
+      call exit(64)
 c
 c-----------------------------------------------------------------------
 c%%%WinMac: b 26
-6000  Format('STF 1.51 B40430  (Subset Table Files)'/
+6000  Format('STF 1.6  B90127  (Subset Table Files)'/
      + /'usage:  stf <filename> [options]'//
      + 'where [options] may be:'/
      + '       -l    (list field names by number)'/
      + '       ##    (field number to output)'/
      + '    ##-##    (field number range)'/
      + '    <name>   (field name)'/
+     + '      -h     (list  "\" header lines)'/
      + '      -s1    (strip "\" header lines)'/
      + '      -s2    (strip "|" header lines)'/
      + '      -s3    (don''t add STF header lines)'/
